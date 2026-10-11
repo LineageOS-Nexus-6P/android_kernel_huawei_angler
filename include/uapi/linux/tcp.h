@@ -186,6 +186,14 @@ struct tcp_info {
 	__u32	tcpi_rcv_space;
 
 	__u32	tcpi_total_retrans;
+
+	/* Keep the modern tcp_info ABI layout expected by Android's NetworkStack. */
+	__u64	tcpi_pacing_rate;
+	__u64	tcpi_max_pacing_rate;
+	__u64	tcpi_bytes_acked;
+	__u64	tcpi_bytes_received;
+	__u32	tcpi_segs_out;
+	__u32	tcpi_segs_in;
 };
 
 /* for TCP_MD5SIG socket option */

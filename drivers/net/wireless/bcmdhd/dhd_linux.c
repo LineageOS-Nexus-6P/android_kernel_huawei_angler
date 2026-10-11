@@ -175,7 +175,7 @@ static u32 vendor_oui = CONFIG_DHD_SET_RANDOM_MAC_VAL;
 #define DHD_MAX_STA     32
 #define FILE_BLOCK_READ_SIZE 256
 /* [FIX ME] Path define can be moved to Kconfig. Currently defined here */
-#define FILTER_IE_PATH "/etc/wifi/filter_ie"
+#define FILTER_IE_PATH "/vendor/etc/wifi/filter_ie"
 #define FILTER_IE_BUFSZ 1024 /* ioc buffsize for FILTER_IE */
 #define NULL_CHECK(p, s, err)  \
 			do { \
@@ -7953,9 +7953,11 @@ int dhd_dev_get_feature_set(struct net_device *dev)
 	feature_set |= WIFI_FEATURE_D2D_RTT;
 	feature_set |= WIFI_FEATURE_D2AP_RTT;
 #endif /* RTT_SUPPORT */
-#ifdef LINKSTAT_SUPPORT
-	feature_set |= WIFI_FEATURE_LINKSTAT;
-#endif /* LINKSTAT_SUPPORT */
+	/*
+	 * The stock angler firmware does not return valid link-layer statistics
+	 * through the modern Wi-Fi HAL.  Do not advertise the capability: the
+	 * framework already falls back to interface packet counters.
+	 */
 	/* Supports STA + STA always */
 	feature_set |= WIFI_FEATURE_ADDITIONAL_STA;
 #ifdef PNO_SUPPORT
@@ -11154,5 +11156,3 @@ exit:
 	return ret;
 }
 #endif /* FILTER_IE */
-
-

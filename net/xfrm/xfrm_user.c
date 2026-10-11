@@ -1751,20 +1751,58 @@ static int xfrm_flush_sa(struct sk_buff *skb, struct nlmsghdr *nlh,
 
 static inline size_t xfrm_aevent_msgsize(struct xfrm_state *x)
 {
-	size_t replay_size = x->replay_esn ?
-			      xfrm_replay_state_esn_len(x->replay_esn) :
-			      sizeof(struct xfrm_replay_state);
+	size_t replay_size = nla_total_size(sizeof(struct xfrm_replay_state));
+
+	if (x->replay_esn)
+		replay_size += nla_total_size(
+			xfrm_replay_state_esn_len(x->replay_esn));
 
 	return NLMSG_ALIGN(sizeof(struct xfrm_aevent_id))
-	       + nla_total_size(replay_size)
+	       + replay_size
 	       + nla_total_size(sizeof(struct xfrm_lifetime_cur))
 	       + nla_total_size(sizeof(struct xfrm_mark))
 	       + nla_total_size(4) /* XFRM_AE_RTHR */
 	       + nla_total_size(4); /* XFRM_AE_ETHR */
 }
 
+static void xfrm_replay_esn_to_legacy(
+	const struct xfrm_replay_state_esn *replay_esn,
+	struct xfrm_replay_state *legacy)
+{
+	unsigned int window;
+	unsigned int pos;
+	unsigned int diff;
+
+	memset(legacy, 0, sizeof(*legacy));
+	legacy->oseq = replay_esn->oseq;
+	legacy->seq = replay_esn->seq;
+
+	if (!replay_esn->bmp_len || !replay_esn->replay_window)
+		return;
+
+	window = min_t(unsigned int, replay_esn->replay_window, 32);
+	pos = (replay_esn->seq - 1) % replay_esn->replay_window;
+
+	/* Convert the circular ESN bitmap to the legacy relative bitmap. */
+	for (diff = 0; diff < window; diff++) {
+		unsigned int bitnr;
+		unsigned int nr;
+
+		if (pos >= diff)
+			bitnr = pos - diff;
+		else
+			bitnr = replay_esn->replay_window - (diff - pos);
+		nr = bitnr >> 5;
+
+		if (nr < replay_esn->bmp_len &&
+		    replay_esn->bmp[nr] & (1U << (bitnr & 0x1f)))
+			legacy->bitmap |= 1U << diff;
+	}
+}
+
 static int build_aevent(struct sk_buff *skb, struct xfrm_state *x, const struct km_event *c)
 {
+	struct xfrm_replay_state legacy_replay;
 	struct xfrm_aevent_id *id;
 	struct nlmsghdr *nlh;
 	int err;
@@ -1783,6 +1821,18 @@ static int build_aevent(struct sk_buff *skb, struct xfrm_state *x, const struct 
 	id->flags = c->data.aevent;
 
 	if (x->replay_esn) {
+		/*
+		 * The stock Angler netmgr decoder predates ESN and spins forever
+		 * unless XFRMA_REPLAY_VAL is the first replay attribute. Supply a
+		 * correct legacy view first, while retaining full ESN state for
+		 * consumers that understand it.
+		 */
+		xfrm_replay_esn_to_legacy(x->replay_esn, &legacy_replay);
+		err = nla_put(skb, XFRMA_REPLAY_VAL, sizeof(legacy_replay),
+			      &legacy_replay);
+		if (err)
+			goto out_cancel;
+
 		err = nla_put(skb, XFRMA_REPLAY_ESN_VAL,
 			      xfrm_replay_state_esn_len(x->replay_esn),
 			      x->replay_esn);
@@ -1891,7 +1941,7 @@ static int xfrm_new_ae(struct sk_buff *skb, struct nlmsghdr *nlh,
 	if (x->km.state != XFRM_STATE_VALID)
 		goto out;
 
-	err = xfrm_replay_verify_len(x->replay_esn, rp);
+	err = xfrm_replay_verify_len(x->replay_esn, re);
 	if (err)
 		goto out;
 
@@ -3108,4 +3158,3 @@ module_init(xfrm_user_init);
 module_exit(xfrm_user_exit);
 MODULE_LICENSE("GPL");
 MODULE_ALIAS_NET_PF_PROTO(PF_NETLINK, NETLINK_XFRM);
-
