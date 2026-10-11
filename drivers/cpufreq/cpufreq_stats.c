@@ -175,9 +175,11 @@ static int uid_time_in_state_show(struct seq_file *m, void *v)
 
 		if (uid_entry->alive_max_states > max_states)
 			max_states = uid_entry->alive_max_states;
-		if (max_states)
-			seq_printf(m, "%d:", uid_entry->uid);
-		for (i = 0; i < max_states; ++i) {
+		if (!max_states)
+			continue;
+
+		seq_printf(m, "%d:", uid_entry->uid);
+		for (i = 0; i < all_freq_table->table_size; ++i) {
 			u64 total_time_in_state = 0;
 
 			if (uid_entry->dead_time_in_state &&
@@ -193,8 +195,7 @@ static int uid_time_in_state_show(struct seq_file *m, void *v)
 			seq_printf(m, " %lu", (unsigned long)
 				cputime_to_clock_t(total_time_in_state));
 		}
-		if (max_states)
-			seq_putc(m, '\n');
+		seq_putc(m, '\n');
 
 		kfree(uid_entry->alive_time_in_state);
 		uid_entry->alive_time_in_state = NULL;

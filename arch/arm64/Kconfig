@@ -240,6 +240,8 @@ config ARCH_MSM8916
 config ARCH_MSM8994
 	bool "Enable Support for Qualcomm MSM8994"
 	depends on ARCH_MSM
+	select BLK_CGROUP
+	select CFQ_GROUP_IOSCHED
 	help
 	  This enables support for the MSM8994 chipset. If you dont
 	  know what do here, say N
