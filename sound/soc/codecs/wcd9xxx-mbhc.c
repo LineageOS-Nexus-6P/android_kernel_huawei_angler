@@ -1540,12 +1540,9 @@ wcd9xxx_cs_find_plug_type(struct wcd9xxx_mbhc *mbhc,
 			if (!minv || minv > d->_vdces)
 				minv = d->_vdces;
 		}
-		if ((!d->mic_bias &&
-		    (d->_vdces >= WCD9XXX_CS_MEAS_INVALD_RANGE_LOW_MV &&
-		     d->_vdces <= WCD9XXX_CS_MEAS_INVALD_RANGE_HIGH_MV)) ||
-		    (d->mic_bias &&
+		if (d->mic_bias &&
 		    (d->_vdces >= WCD9XXX_MEAS_INVALD_RANGE_LOW_MV &&
-		     d->_vdces <= WCD9XXX_MEAS_INVALD_RANGE_HIGH_MV))) {
+		     d->_vdces <= WCD9XXX_MEAS_INVALD_RANGE_HIGH_MV)) {
 			pr_debug("%s: within invalid range\n", __func__);
 			type = PLUG_TYPE_INVALID;
 			goto exit;
